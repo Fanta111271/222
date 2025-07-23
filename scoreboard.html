@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scoreboard: Act it Out!</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        
+        .track {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+            position: relative;
+            height: 100px;
+        }
+        
+        .group-label {
+            position: absolute;
+            top: -25px;
+            font-weight: bold;
+            font-size: 20px;
+        }
+        
+        .start, .goal, .box {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 2px;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .start {
+            background-color: #aaf;
+        }
+        
+        .goal {
+            background-color: #faa;
+        }
+        
+        .box {
+            background-color: #eee;
+        }
+        
+        .box:hover {
+            background-color: #ddd;
+        }
+        
+        .stick-figure {
+            font-size: 24px;
+            position: absolute;
+            bottom: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: left 0.5s ease-in-out;
+        }
+        
+        #groupEnergy .stick-figure {
+            color: blue;
+        }
+        
+        #groupConfidence .stick-figure {
+            color: red;
+        }
+        
+        .controls {
+            margin: 20px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 0 10px;
+            cursor: pointer;
+        }
+        
+        .box.active {
+            background-color: #ff0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Scoreboard: Act it Out!</h1>
+    
+    <div class="track" id="groupEnergy">
+        <div class="group-label">Group Energy</div>
+        <div class="start" id="energy-start">Start</div>
+        <!-- 箱子會用JavaScript動態生成 -->
+        <div class="goal" id="energy-goal">Goal</div>
+        <div class="stick-figure" id="energy-figure">☻</div>
+    </div>
+    
+    <div class="track" id="groupConfidence">
+        <div class="group-label">Group Confidence</div>
+        <div class="start" id="confidence-start">Start</div>
+        <!-- 箱子會用JavaScript動態生成 -->
+        <div class="goal" id="confidence-goal">Goal</div>
+        <div class="stick-figure" id="confidence-figure">☻</div>
+    </div>
+    
+    <div class="controls">
+        <button id="reset-btn">Reset Game</button>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const boxCount = 10; // 改為10個箱子
+            const groupEnergy = document.getElementById('groupEnergy');
+            const groupConfidence = document.getElementById('groupConfidence');
+            const energyStart = document.getElementById('energy-start');
+            const confidenceStart = document.getElementById('confidence-start');
+            const energyFigure = document.getElementById('energy-figure');
+            const confidenceFigure = document.getElementById('confidence-figure');
+            const resetBtn = document.getElementById('reset-btn');
+            
+            // 記錄當前位置
+            let energyPosition = 0; // 0=start, 1-10=boxes, 11=goal
+            let confidencePosition = 0;
+            
+            // 為兩組創建箱子
+            createBoxes(groupEnergy, 'energy', boxCount);
+            createBoxes(groupConfidence, 'confidence', boxCount);
+            
+            // 重置比賽
+            resetBtn.addEventListener('click', function() {
+                energyPosition = 0;
+                confidencePosition = 0;
+                updateFigurePosition('energy', 0);
+                updateFigurePosition('confidence', 0);
+                resetActiveBoxes();
+            });
+            
+            function createBoxes(group, prefix, count) {
+                const start = group.querySelector('.start');
+                const goal = group.querySelector('.goal');
+                
+                // 在start和goal之間插入箱子
+                for (let i = 1; i <= count; i++) {
+                    const box = document.createElement('div');
+                    box.className = 'box';
+                    box.id = `${prefix}-box-${i}`;
+                    box.textContent = i;
+                    group.insertBefore(box, goal);
+                    
+                    // 添加點擊事件
+                    box.addEventListener('click', function() {
+                        const targetPos = parseInt(this.textContent);
+                        moveFigureStepByStep(prefix, targetPos);
+                    });
+                }
+                
+                // 添加start點擊事件
+                start.addEventListener('click', function() {
+                    moveFigureStepByStep(prefix, 0);
+                });
+                
+                // 添加goal點擊事件
+                goal.addEventListener('click', function() {
+                    moveFigureStepByStep(prefix, count + 1);
+                });
+            }
+            
+            function moveFigureStepByStep(prefix, targetPos) {
+                const currentPos = prefix === 'energy' ? energyPosition : confidencePosition;
+                
+                // 如果已經在目標位置或更遠，則不移動
+                if (currentPos >= targetPos) return;
+                
+                // 更新位置
+                if (prefix === 'energy') {
+                    energyPosition = targetPos;
+                } else {
+                    confidencePosition = targetPos;
+                }
+                
+                // 一步一步移動
+                let step = currentPos + 1;
+                const interval = setInterval(() => {
+                    if (step > targetPos) {
+                        clearInterval(interval);
+                        return;
+                    }
+                    
+                    updateFigurePosition(prefix, step);
+                    highlightActiveBox(prefix, step);
+                    step++;
+                }, 500); // 每0.5秒移動一步
+            }
+            
+            function updateFigurePosition(prefix, pos) {
+                const figure = document.getElementById(`${prefix}-figure`);
+                const track = document.getElementById(`group${prefix.charAt(0).toUpperCase() + prefix.slice(1)}`);
+                const trackRect = track.getBoundingClientRect();
+                
+                let targetElement;
+                if (pos === 0) {
+                    targetElement = document.getElementById(`${prefix}-start`);
+                } else if (pos > 0 && pos <= boxCount) {
+                    targetElement = document.getElementById(`${prefix}-box-${pos}`);
+                } else {
+                    targetElement = document.getElementById(`${prefix}-goal`);
+                }
+                
+                const targetRect = targetElement.getBoundingClientRect();
+                const relativeLeft = targetRect.left - trackRect.left + targetRect.width / 2;
+                figure.style.left = `${relativeLeft}px`;
+            }
+            
+            function highlightActiveBox(prefix, pos) {
+                // 移除所有active類
+                document.querySelectorAll(`#group${prefix.charAt(0).toUpperCase() + prefix.slice(1)} .box`).forEach(box => {
+                    box.classList.remove('active');
+                });
+                
+                // 如果是在箱子上，則添加active類
+                if (pos > 0 && pos <= boxCount) {
+                    const activeBox = document.getElementById(`${prefix}-box-${pos}`);
+                    if (activeBox) activeBox.classList.add('active');
+                }
+            }
+            
+            function resetActiveBoxes() {
+                document.querySelectorAll('.box').forEach(box => {
+                    box.classList.remove('active');
+                });
+            }
+        });
+    </script>
+</body>
+</html>
